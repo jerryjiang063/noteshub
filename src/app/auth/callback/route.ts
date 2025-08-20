@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getSiteUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +20,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const base = getSiteUrl();
-  return NextResponse.redirect(`${base}/books`);
+  return NextResponse.redirect(new URL("/books", req.url));
 } 

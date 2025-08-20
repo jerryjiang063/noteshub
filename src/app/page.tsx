@@ -44,7 +44,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<Re
               <span className="mx-2">·</span>
               <span className="truncate inline-block max-w-[60%] align-bottom">{n.books.title}</span>
             </div>
-            <div className="text-lg md:text-xl opacity-80 italic text-black dark:text-white">“{extractSentence(n.content_html)}”</div>
+            <div className="text-lg md:text-xl opacity-80 text-black dark:text-white">“{extractSentence(n.content_html)}”</div>
           </Link>
         ))}
         </div>

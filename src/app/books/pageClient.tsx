@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BookCover from "@/components/BookCover";
@@ -19,6 +19,20 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loadingCoverFor, setLoadingCoverFor] = useState<string | null>(null);
   const [coverResults, setCoverResults] = useState<Record<string, { links: string[]; index: number }>>({});
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meUsername, setMeUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id ?? null;
+      setMeId(uid);
+      if (uid) {
+        const { data: p } = await supabase.from("profiles").select("username").eq("id", uid).maybeSingle();
+        setMeUsername((p as any)?.username ?? null);
+      }
+    })();
+  }, [supabase]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -39,7 +53,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     setAdding(false);
     if (error) { alert(error.message); return; }
     const created = data as Book;
-    setBooks((prev) => [{ ...created, uploader_username: null }, ...prev]);
+    setBooks((prev) => [{ ...created, uploader_username: meUsername ?? null }, ...prev]);
     setTitle("");
     setAuthor("");
   }
@@ -112,6 +126,18 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     setMenuOpenFor(null);
   }
 
+  const canDelete = (b: Book) => {
+    return (meId && meId === b.user_id) || (meUsername === "jerryjiang063");
+  };
+
+  async function deleteBook(b: Book) {
+    const ok = confirm(`确定删除《${b.title}》及其笔记吗？`);
+    if (!ok) return;
+    const { error } = await supabase.from("books").delete().eq("id", b.id);
+    if (error) { alert(error.message); return; }
+    setBooks((prev) => prev.filter((x) => x.id !== b.id));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -141,7 +167,10 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
                   )}
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative flex items-center gap-2">
+                {canDelete(b) && (
+                  <button onClick={() => deleteBook(b)} className="px-2 py-1 text-xs rounded-md border border-red-500/50 text-red-600 hover:bg-red-500/10">删除</button>
+                )}
                 <button onClick={() => setMenuOpenFor(menuOpenFor === b.id ? null : b.id)} className="px-2 py-1 text-xs rounded-md bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-black dark:text-white">封面</button>
                 {menuOpenFor === b.id && (
                   <div className="absolute right-0 mt-1 w-44 rounded-md border border-black/10 dark:border-white/10 bg-[color:var(--background)] shadow-lg p-1 text-sm z-30">

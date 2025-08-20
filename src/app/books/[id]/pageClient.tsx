@@ -248,9 +248,9 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
               </button>
               {coverMenuOpen && (
                 <div className="mt-2 w-44 rounded-md border border-black/10 dark:border-white/10 bg-[color:var(--background)] shadow-lg p-1 text-sm origin-top-right animate-[fade-in-up_0.18s_ease_forwards]">
-                  <button disabled={coverFetching} onClick={autoFetchCover} className="w-full text-left px-2 py-1 rounded hover:bg黑/5 dark:hover:bg白/10 disabled:opacity-60">{coverFetching ? "获取中..." : "自动获取封面"}</button>
-                  <button disabled={coverFetching} onClick={nextCover} className="w-full text-left px-2 py-1 rounded hover:bg黑/5 dark:hover:bg白/10 disabled:opacity-60">换一张</button>
-                  <button onClick={() => fileInputRef.current?.click()} className="w-full text-left px-2 py-1 rounded hover:bg黑/5 dark:hover:bg白/10">上传封面</button>
+                  <button disabled={coverFetching} onClick={autoFetchCover} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">{coverFetching ? "获取中..." : "自动获取封面"}</button>
+                  <button disabled={coverFetching} onClick={nextCover} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">换一张</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10">上传封面</button>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={onUploadCover} className="hidden" />
                 </div>
               )}

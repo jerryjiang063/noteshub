@@ -34,7 +34,7 @@ export default function Navbar() {
     window.location.href = "/login";
   }
 
-  const myHomeHref = useMemo(() => (username ? `/${username}` : "/"), [username]);
+  const myHomeHref = useMemo(() => (username ? `/${username}` : "/settings"), [username]);
 
   if (!mounted) return null;
 

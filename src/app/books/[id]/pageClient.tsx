@@ -268,7 +268,7 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
         </div>
         <div className="ml-auto">
           {isOwner && (
-            <button disabled={creating} onClick={createNote} className="px-4 py-2 text-base rounded-md bg黑 text白 dark:bg白 dark:text黑">新建笔记</button>
+            <button disabled={creating} onClick={createNote} className="px-4 py-2 text-base rounded-md border border-black/10 dark:border-white/20 bg-black text-white dark:bg-white dark:text-black hover:opacity-90">新建笔记</button>
           )}
         </div>
       </div>

@@ -13,6 +13,18 @@ import { createLowlight, common } from "lowlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Bold as BoldIcon, Italic, Underline as UnderlineIcon, List, ListOrdered, Quote, Heading1, Heading2, Save, Trash2, Undo, Redo, Link as LinkIcon } from "lucide-react";
 import { useEffect } from "react";
+import { Editor } from "@tiptap/react";
+import TextStyle from "@tiptap/extension-text-style";
+
+// A minimal inline style command for font size using marks via setMark with style attribute
+const FontSize = {
+  set: (editor: Editor, size: string) => {
+    editor.chain().focus().setMark("textStyle", { fontSize: size }).run();
+  },
+  unset: (editor: Editor) => {
+    editor.chain().focus().setMark("textStyle", { fontSize: undefined }).run();
+  },
+};
 
 const lowlight = createLowlight(common);
 
@@ -46,6 +58,8 @@ export default function NoteEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, blockquote: false, bulletList: false, orderedList: false, listItem: false }),
+      TextStyle,
+      // Use built-in TextStyle via StarterKit (provided by @tiptap/extension-text-style in StarterKit)
       Heading.configure({ levels: [1, 2, 3] }),
       Placeholder.configure({ placeholder: "开始记录你的读书笔记..." }),
       Blockquote,
@@ -87,6 +101,54 @@ export default function NoteEditor({
           const url = window.prompt("插入链接：", "https://");
           if (url) editor.chain().focus().setLink({ href: url }).run();
         }} icon={<LinkIcon size={16} />} />
+        <div className="ml-2 inline-flex items-center gap-1 text-sm">
+          <span className="text-black/70 dark:text-white/70">字号</span>
+          <select
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) FontSize.unset(editor);
+              else FontSize.set(editor, v);
+            }}
+            className="px-2 py-1 rounded-md bg-black/10 dark:bg-white/10"
+            defaultValue=""
+          >
+            <option value="">默认</option>
+            <option value="14px">14</option>
+            <option value="16px">16</option>
+            <option value="18px">18</option>
+            <option value="20px">20</option>
+            <option value="24px">24</option>
+            <option value="28px">28</option>
+            <option value="32px">32</option>
+          </select>
+          <input
+            type="number"
+            min={12}
+            max={48}
+            step={1}
+            placeholder="自定义"
+            className="w-20 px-2 py-1 rounded-md bg-black/10 dark:bg-white/10"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const val = (e.currentTarget as HTMLInputElement).value;
+                const n = Number(val);
+                if (!isNaN(n)) {
+                  const clamped = Math.min(48, Math.max(12, n));
+                  FontSize.set(editor, `${clamped}px`);
+                }
+              }
+            }}
+            onBlur={(e) => {
+              const val = e.currentTarget.value;
+              if (!val) return;
+              const n = Number(val);
+              if (!isNaN(n)) {
+                const clamped = Math.min(48, Math.max(12, n));
+                FontSize.set(editor, `${clamped}px`);
+              }
+            }}
+          />
+        </div>
         <div className="ml-auto flex gap-1">
           <ToolbarButton onClick={() => editor.chain().focus().undo().run()} icon={<Undo size={16} />} />
           <ToolbarButton onClick={() => editor.chain().focus().redo().run()} icon={<Redo size={16} />} />

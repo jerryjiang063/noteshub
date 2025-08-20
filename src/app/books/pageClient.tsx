@@ -61,6 +61,11 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     setAuthor("");
   }
 
+  const canDelete = (b: Book) => {
+    return (meId && meId === b.user_id) || (meUsername === "jerryjiang063");
+  };
+  const canManageCover = (b: Book) => canDelete(b);
+
   async function tryUploadToStorage(book: Book, imageUrl: string): Promise<string | null> {
     try {
       const resp = await fetch(imageUrl, { mode: "cors" });
@@ -79,7 +84,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   }
 
   async function applyCoverLink(book: Book, link: string) {
-    // Try to self-host; if blocked by CORS, fall back to external link
+    if (!canManageCover(book)) { alert("无权限修改封面"); return; }
     const hosted = await tryUploadToStorage(book, link);
     const finalUrl = hosted || link;
     const { error } = await supabase.from("books").update({ cover_url: finalUrl }).eq("id", book.id);
@@ -87,6 +92,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   }
 
   async function autoFetchCover(book: Book) {
+    if (!canManageCover(book)) { alert("无权限修改封面"); return; }
     setLoadingCoverFor(book.id);
     let state = coverResults[book.id];
     if (!state || !state.links || state.links.length === 0) {
@@ -101,6 +107,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   }
 
   async function nextCover(book: Book) {
+    if (!canManageCover(book)) { alert("无权限修改封面"); return; }
     setLoadingCoverFor(book.id);
     let state = coverResults[book.id];
     if (!state || !state.links || state.links.length === 0) {
@@ -117,6 +124,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   }
 
   async function onUploadCover(e: React.ChangeEvent<HTMLInputElement>, book: Book) {
+    if (!canManageCover(book)) { alert("无权限修改封面"); return; }
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     const path = `manual/${book.id}/${Date.now()}-${file.name}`;
@@ -128,10 +136,6 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     if (!error) setBooks((prev) => prev.map((b) => b.id === book.id ? { ...b, cover_url: url } : b));
     setMenuOpenFor(null);
   }
-
-  const canDelete = (b: Book) => {
-    return (meId && meId === b.user_id) || (meUsername === "jerryjiang063");
-  };
 
   return (
     <div className="space-y-6">
@@ -166,16 +170,20 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
                 {canDelete(b) && (
                   <button onClick={() => setPendingDeleteBook(b)} className="px-2 py-1 text-xs rounded-md border border-red-500/50 text-red-600 hover:bg-red-500/10">删除</button>
                 )}
-                <button onClick={() => setMenuOpenFor(menuOpenFor === b.id ? null : b.id)} className="px-2 py-1 text-xs rounded-md bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-black dark:text-white">封面</button>
-                {menuOpenFor === b.id && (
-                  <div className="absolute right-0 mt-1 w-44 rounded-md border border-black/10 dark:border-white/10 bg-[color:var(--background)] shadow-lg p-1 text-sm z-30">
-                    <button disabled={loadingCoverFor === b.id} onClick={() => autoFetchCover(b)} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">{loadingCoverFor === b.id ? "获取中..." : "自动获取封面"}</button>
-                    <button disabled={loadingCoverFor === b.id} onClick={() => nextCover(b)} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">换一张</button>
-                    <label className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 block cursor-pointer">
-                      上传封面
-                      <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onUploadCover(e, b)} className="hidden" />
-                    </label>
-                  </div>
+                {canManageCover(b) && (
+                  <>
+                    <button onClick={() => setMenuOpenFor(menuOpenFor === b.id ? null : b.id)} className="px-2 py-1 text-xs rounded-md bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-black dark:text-white">封面</button>
+                    {menuOpenFor === b.id && (
+                      <div className="absolute right-0 mt-1 w-44 rounded-md border border-black/10 dark:border-white/10 bg-[color:var(--background)] shadow-lg p-1 text-sm z-30">
+                        <button disabled={loadingCoverFor === b.id} onClick={() => autoFetchCover(b)} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">{loadingCoverFor === b.id ? "获取中..." : "自动获取封面"}</button>
+                        <button disabled={loadingCoverFor === b.id} onClick={() => nextCover(b)} className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-60">换一张</button>
+                        <label className="w-full text-left px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 block cursor-pointer">
+                          上传封面
+                          <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onUploadCover(e, b)} className="hidden" />
+                        </label>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

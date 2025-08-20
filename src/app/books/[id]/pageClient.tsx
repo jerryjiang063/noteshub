@@ -27,7 +27,7 @@ type Book = { id: string; title: string; author: string | null; cover_url: strin
 
 type Note = { id: string; title: string | null; content_html: string | null; font_name?: string | null; font_url?: string | null; created_at: string; updated_at: string };
 
-export default function NotesClient({ book, initialNotes }: { book: Book; initialNotes: Note[] }) {
+export default function NotesClient({ book, initialNotes, ownerUsername }: { book: Book; initialNotes: Note[]; ownerUsername?: string | null }) {
   const supabase = createSupabaseBrowserClient();
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [creating, setCreating] = useState(false);
@@ -42,6 +42,7 @@ export default function NotesClient({ book, initialNotes }: { book: Book; initia
   const [cropOpen, setCropOpen] = useState(false);
   const [rawImage, setRawImage] = useState<string | null>(null);
   const [coverResults, setCoverResults] = useState<{ links: string[]; index: number }>({ links: [], index: 0 });
+  const [lang, setLang] = useState<'zh' | 'en'>('zh');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -260,8 +261,17 @@ export default function NotesClient({ book, initialNotes }: { book: Book; initia
         <div>
           <div className="text-3xl md:text-4xl font-bold">{book.title}</div>
           {book.author && <div className="text-base md:text-lg text-black/60 dark:text-white/60">{book.author}</div>}
+          {ownerUsername && (
+            <div className="text-sm mt-1">
+              <Link href={`/${ownerUsername}`} className="text-black/70 dark:text-white/70 hover:underline">@{ownerUsername}</Link>
+            </div>
+          )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <select value={lang} onChange={(e) => setLang(e.target.value as 'zh' | 'en')} className="px-2 py-1 rounded-md bg-black/5 dark:bg-white/10">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
           {isOwner && (
             <button disabled={creating} onClick={createNote} className="px-4 py-2 text-base rounded-md bg-black text-white dark:bg-white dark:text-black">新建笔记</button>
           )}

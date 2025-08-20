@@ -5,6 +5,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BookCover from "@/components/BookCover";
 import { searchCoverLinks } from "@/lib/covers/googleCse";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
+
 
 type Book = { id: string; title: string; author: string | null; cover_url: string | null; user_id: string; uploader_username?: string | null };
 
@@ -21,6 +23,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   const [coverResults, setCoverResults] = useState<Record<string, { links: string[]; index: number }>>({});
   const [meId, setMeId] = useState<string | null>(null);
   const [meUsername, setMeUsername] = useState<string | null>(null);
+  const [pendingDeleteBook, setPendingDeleteBook] = useState<Book | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -130,14 +133,6 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     return (meId && meId === b.user_id) || (meUsername === "jerryjiang063");
   };
 
-  async function deleteBook(b: Book) {
-    const ok = confirm(`确定删除《${b.title}》及其笔记吗？`);
-    if (!ok) return;
-    const { error } = await supabase.from("books").delete().eq("id", b.id);
-    if (error) { alert(error.message); return; }
-    setBooks((prev) => prev.filter((x) => x.id !== b.id));
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -169,7 +164,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
               </div>
               <div className="relative flex items-center gap-2">
                 {canDelete(b) && (
-                  <button onClick={() => deleteBook(b)} className="px-2 py-1 text-xs rounded-md border border-red-500/50 text-red-600 hover:bg-red-500/10">删除</button>
+                  <button onClick={() => setPendingDeleteBook(b)} className="px-2 py-1 text-xs rounded-md border border-red-500/50 text-red-600 hover:bg-red-500/10">删除</button>
                 )}
                 <button onClick={() => setMenuOpenFor(menuOpenFor === b.id ? null : b.id)} className="px-2 py-1 text-xs rounded-md bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-black dark:text-white">封面</button>
                 {menuOpenFor === b.id && (
@@ -187,6 +182,23 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDeleteBook}
+        title="删除书本"
+        description={pendingDeleteBook ? `此操作不可恢复，确定要删除《${pendingDeleteBook.title}》及其笔记吗？` : undefined}
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+        onCancel={() => setPendingDeleteBook(null)}
+        onConfirm={async () => {
+          const id = pendingDeleteBook!.id;
+          setPendingDeleteBook(null);
+          const { error } = await supabase.from("books").delete().eq("id", id);
+          if (error) { alert(error.message); return; }
+          setBooks((prev) => prev.filter((x) => x.id !== id));
+        }}
+      />
     </div>
   );
 } 

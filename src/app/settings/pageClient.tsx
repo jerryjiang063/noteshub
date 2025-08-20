@@ -8,11 +8,11 @@ import BannerCropDialog from "@/components/avatar/BannerCropDialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-type Profile = { id: string; username: string; avatar_url: string | null };
+type Profile = { id: string; username: string; avatar_url: string | null; bio?: string | null; banner_url?: string | null };
 
 export default function SettingsClient({ initialProfile }: { initialProfile: Profile }) {
 	const supabase = createSupabaseBrowserClient();
-	const [profile, setProfile] = useState<Profile & { bio?: string | null; banner_url?: string | null }>({ ...initialProfile });
+	const [profile, setProfile] = useState<Profile>({ ...initialProfile });
 	const [saving, setSaving] = useState(false);
 	const [userId, setUserId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);

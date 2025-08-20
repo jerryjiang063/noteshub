@@ -1,8 +1,14 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #121214; /* lighter than pure black */
+  --foreground: #e6e6e6; /* softer white */
 }
 
 @theme inline {
@@ -12,15 +18,56 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Smooth theme change transition */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition-property: background-color, color, border-color, fill, stroke;
+  transition-duration: 700ms;
+  transition-timing-function: ease;
+}
+
+/* Micro animations */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fade-in-up 280ms ease forwards; }
+
+/* Prose baseline to ensure headings/lists render nicely */
+.prose { max-width: none; }
+.dark .prose { --tw-prose-body: var(--foreground); --tw-prose-headings: var(--foreground); }
+
+/* Force 3:4 for any generic cover container using this utility */
+.cover-3-4 { position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; }
+
+/* Ensure dark buttons are visible on dark bg */
+.btn-dark-visible { background-color: rgba(255,255,255,0.08); color: var(--foreground); border: 1px solid rgba(255,255,255,0.24); }
+.btn-dark-visible:hover { background-color: rgba(255,255,255,0.14); }
+
+/* Force all text/icons/borders to be readable in dark mode within a scope */
+.dark .dark-all-white,
+.dark .dark-all-white *,
+.dark .dark-all-white *::before,
+.dark .dark-all-white *::after {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.dark .dark-all-white .border,
+.dark .dark-all-white [class*="border-"] {
+  border-color: rgba(255,255,255,0.25) !important;
+}
+
+/* Force cover fallback text to always be black, even in dark-all-white scope */
+.dark .dark-all-white .cover-fallback,
+.dark .dark-all-white .cover-fallback *,
+.dark .dark-all-white .cover-fallback *::before,
+.dark .dark-all-white .cover-fallback *::after { color: #000 !important; }

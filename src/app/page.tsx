@@ -1,103 +1,64 @@
-import Image from "next/image";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type NoteRow = { id: string; content_html: string; updated_at: string; books: { id: string; title: string; user_id: string } };
+
+type ProfileRow = { id: string; username: string };
+
+export default async function Home() {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: rows } = await supabase
+    .from("notes")
+    .select("id, content_html, updated_at, books:book_id ( id, title, user_id )")
+    .order("updated_at", { ascending: false })
+    .limit(12);
+
+  const notes: NoteRow[] = (rows as unknown as NoteRow[] | null)?.filter((n) => n?.books?.id) ?? [];
+
+  const userIds = Array.from(new Set(notes.map((n) => n.books.user_id).filter(Boolean)));
+  const usernameById = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", userIds);
+    (profiles as ProfileRow[] | null)?.forEach((p) => usernameById.set(String(p.id), String(p.username)));
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div className="space-y-6">
+      <h1 className="text-xl font-semibold text-black dark:text-white">推荐笔记</h1>
+      <div className="grid gap-4 md:grid-cols-2">
+        {notes.map((n) => (
+          <Link key={n.id} href={`/books/${n.books.id}`} className="group rounded-xl border border-black/10 dark:border-white/20 p-4 hover:shadow-lg transition-shadow">
+            <div className="text-sm text-black/60 dark:text-white mb-2">
+              <span>@{usernameById.get(n.books.user_id) ?? "用户"}</span>
+              <span className="mx-2">·</span>
+              <span className="truncate inline-block max-w-[60%] align-bottom">{n.books.title}</span>
+            </div>
+            <div className="text-base opacity-80 italic text-black dark:text-white">“{extractSentence(n.content_html)}”</div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
+}
+
+function extractSentence(html: string): string {
+  try {
+    const text = html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li)>/gi, "\n")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&");
+    const arr = text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    if (arr.length === 0) return "...";
+    return arr[0].slice(0, 120);
+  } catch {
+    return "...";
+  }
 }

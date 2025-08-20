@@ -13,8 +13,10 @@ import { createLowlight, common } from "lowlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Bold as BoldIcon, Italic, Underline as UnderlineIcon, List, ListOrdered, Quote, Heading1, Heading2, Save, Trash2, Undo, Redo, Link as LinkIcon } from "lucide-react";
 import { useEffect } from "react";
-import { Editor } from "@tiptap/react";
-import TextStyle from "@tiptap/extension-text-style";
+import type { Editor } from "@tiptap/react";
+import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import { TextStyle } from "@tiptap/extension-text-style";
 
 // A minimal inline style command for font size using marks via setMark with style attribute
 const FontSize = {
@@ -67,6 +69,8 @@ export default function NoteEditor({
       OrderedList,
       ListItem,
       CodeBlockLowlight.configure({ lowlight }),
+      Underline,
+      Link.configure({ openOnClick: false }),
     ],
     content: initialContent || "",
     editorProps: {

@@ -1,6 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import BookCover from "@/components/BookCover";
+import Image from "next/image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +13,7 @@ export default async function UserHome({ params }: { params: Promise<{ username:
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username")
+    .select("id, username, avatar_url, bio, banner_url")
     .eq("username", username)
     .maybeSingle();
 
@@ -29,10 +32,24 @@ export default async function UserHome({ params }: { params: Promise<{ username:
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl overflow-hidden border border-black/10 dark:border-white/10">
+        <div className="relative h-40 md:h-48 bg-black/5 dark:bg-white/10">
+          {profile.banner_url && (
+            <Image src={profile.banner_url} alt="banner" fill sizes="100vw" style={{ objectFit: "cover" }} unoptimized referrerPolicy="no-referrer" />
+          )}
+        </div>
+      </div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-black dark:text-white">{username} 的书籍</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-black dark:text-white">@{profile.username}</h1>
+          {profile.bio && (
+            <div className="prose prose-sm dark:prose-invert max-w-none mt-2">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{profile.bio}</ReactMarkdown>
+            </div>
+          )}
+        </div>
         {isOwner && (
-          <Link href="/books" className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black text-sm">编辑</Link>
+          <Link href="/settings" className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black text-sm">编辑</Link>
         )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

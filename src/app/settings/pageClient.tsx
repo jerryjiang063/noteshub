@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import AvatarCropDialog from "@/components/avatar/AvatarCropDialog";
+import BannerCropDialog from "@/components/avatar/BannerCropDialog";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Profile = { id: string; username: string; avatar_url: string | null };
 
 export default function SettingsClient({ initialProfile }: { initialProfile: Profile }) {
 	const supabase = createSupabaseBrowserClient();
-	const [profile, setProfile] = useState<Profile>(initialProfile);
+	const [profile, setProfile] = useState<Profile & { bio?: string | null; banner_url?: string | null }>({ ...initialProfile });
 	const [saving, setSaving] = useState(false);
 	const [userId, setUserId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -17,9 +20,21 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 	const [cropOpen, setCropOpen] = useState(false);
 	const [rawImage, setRawImage] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
+	const bannerRef = useRef<HTMLInputElement | null>(null);
+	const [bannerCropOpen, setBannerCropOpen] = useState(false);
+	const [rawBanner, setRawBanner] = useState<string | null>(null);
+	const [uploadingBanner, setUploadingBanner] = useState(false);
+	const [bioSaving, setBioSaving] = useState(false);
 
 	useEffect(() => {
-		supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+		supabase.auth.getUser().then(async ({ data }) => {
+			const uid = data.user?.id ?? null;
+			setUserId(uid);
+			if (uid) {
+				const { data: p } = await supabase.from("profiles").select("username, avatar_url, bio, banner_url").eq("id", uid).maybeSingle();
+				if (p) setProfile((prev) => ({ ...prev, bio: (p as any).bio ?? null, banner_url: (p as any).banner_url ?? null }));
+			}
+		});
 	}, [supabase]);
 
 	async function saveUsername() {
@@ -92,9 +107,64 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 		alert("头像已更新");
 	}
 
+	function onPickBanner() {
+		bannerRef.current?.click();
+	}
+
+	function onBannerFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+		if (!e.target.files || e.target.files.length === 0) return;
+		const file = e.target.files[0];
+		const reader = new FileReader();
+		reader.onload = () => { setRawBanner(reader.result as string); setBannerCropOpen(true); };
+		reader.readAsDataURL(file);
+		e.currentTarget.value = "";
+	}
+
+	async function uploadBanner(blob: Blob) {
+		if (!userId) return;
+		setUploadingBanner(true);
+		const path = `banners/${userId}/${Date.now()}.jpg`;
+		const { error: upErr } = await supabase.storage.from("banners").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+		if (upErr) { setUploadingBanner(false); alert(upErr.message); return; }
+		const { data } = supabase.storage.from("banners").getPublicUrl(path);
+		const url = data.publicUrl;
+		const { error: profErr } = await supabase.from("profiles").update({ banner_url: url }).eq("id", userId);
+		setUploadingBanner(false);
+		if (profErr) { alert(profErr.message); return; }
+		setProfile((p) => ({ ...p, banner_url: url }));
+		alert("横幅已更新");
+	}
+
+	async function saveBio() {
+		if (!userId) return;
+		setBioSaving(true);
+		const { error: upErr } = await supabase.from("profiles").update({ bio: profile.bio ?? null }).eq("id", userId);
+		setBioSaving(false);
+		if (upErr) { alert(upErr.message); return; }
+		alert("简介已更新");
+	}
+
 	return (
 		<div className="max-w-2xl mx-auto space-y-6">
 			<h1 className="text-xl font-semibold text-black dark:text-white">个人主页设置</h1>
+
+			{/* Banner */}
+			<div className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden">
+				<div className="relative h-32 md:h-40 bg-black/5 dark:bg-white/10">
+					{profile.banner_url && (
+						<Image src={profile.banner_url} alt="banner" fill sizes="100vw" style={{ objectFit: "cover" }} unoptimized referrerPolicy="no-referrer" />
+					)}
+				</div>
+				<div className="p-3 flex items-center justify-between">
+					<div className="text-sm text-black/60 dark:text-white/60">主页横幅图</div>
+					<div>
+						<button onClick={onPickBanner} className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black text-sm disabled:opacity-60" disabled={uploadingBanner}>
+							{uploadingBanner ? "上传中..." : "更换横幅"}
+						</button>
+						<input ref={bannerRef} type="file" accept="image/*" onChange={onBannerFileChange} className="hidden" />
+					</div>
+				</div>
+			</div>
 
 			<div className="rounded-xl border border-black/10 dark:border-white/10 p-4 flex items-center gap-4">
 				<div className="relative w-24 h-24 rounded-full overflow-hidden bg-black/5 dark:bg-white/10">
@@ -130,6 +200,25 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 				<p className="text-xs text-black/50 dark:text-white/50">修改后，你的主页地址将变为 /{profile.username}。</p>
 			</div>
 
+			<div className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-3">
+				<label className="block text-sm text-black/60 dark:text-white/60">简介</label>
+				<textarea
+					value={profile.bio ?? ""}
+					onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+					placeholder="写点你的介绍..."
+					rows={4}
+					className="w-full rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none"
+				/>
+				<div className="prose prose-sm dark:prose-invert max-w-none">
+					<ReactMarkdown remarkPlugins={[remarkGfm]}>{profile.bio ?? ""}</ReactMarkdown>
+				</div>
+				<div className="flex justify-end">
+					<button onClick={saveBio} disabled={bioSaving} className="px-4 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black">
+						{bioSaving ? "保存中..." : "保存简介"}
+					</button>
+				</div>
+			</div>
+
 			{cropOpen && rawImage && (
 				<AvatarCropDialog
 					image={rawImage}
@@ -142,6 +231,14 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 						setRawImage(null);
 						uploadAvatar(blob);
 					}}
+				/>
+			)}
+
+			{bannerCropOpen && rawBanner && (
+				<BannerCropDialog
+					image={rawBanner}
+					onCancel={() => { setBannerCropOpen(false); setRawBanner(null); }}
+					onConfirm={(blob) => { setBannerCropOpen(false); setRawBanner(null); uploadBanner(blob); }}
 				/>
 			)}
 		</div>

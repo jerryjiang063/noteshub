@@ -6,7 +6,7 @@ import Link from "next/link";
 import BookCover from "@/components/BookCover";
 import { searchCoverLinks } from "@/lib/covers/googleCse";
 
-type Book = { id: string; title: string; author: string | null; cover_url: string | null };
+type Book = { id: string; title: string; author: string | null; cover_url: string | null; user_id: string; uploader_username?: string | null };
 
 export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) {
   const supabase = createSupabaseBrowserClient();
@@ -23,7 +23,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return books;
-    return books.filter((b) => (b.title?.toLowerCase().includes(q) || b.author?.toLowerCase().includes(q)));
+    return books.filter((b) => (b.title?.toLowerCase().includes(q) || b.author?.toLowerCase().includes(q) || b.uploader_username?.toLowerCase().includes(q)));
   }, [books, query]);
 
   async function addBook(e: React.FormEvent) {
@@ -34,11 +34,12 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
     const { data, error } = await supabase
       .from("books")
       .insert({ title, author, user_id: userRes.user.id })
-      .select("id, title, author, cover_url")
+      .select("id, title, author, cover_url, user_id")
       .single();
     setAdding(false);
     if (error) { alert(error.message); return; }
-    setBooks((prev) => [data as Book, ...prev]);
+    const created = data as Book;
+    setBooks((prev) => [{ ...created, uploader_username: null }, ...prev]);
     setTitle("");
     setAuthor("");
   }
@@ -114,11 +115,11 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索书名/作者" className="flex-1 rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索书名/作者/上传者" className="flex-1 rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20" />
         <form onSubmit={addBook} className="flex gap-2 flex-1 sm:flex-none">
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="书名" className="flex-1 rounded-md px-3 py-2 bg黑/5 dark:bg白/10 outline-none focus:ring-2 focus:ring黑/20 dark:focus:ring白/20" />
-          <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="作者" className="flex-1 rounded-md px-3 py-2 bg黑/5 dark:bg白/10 outline-none focus:ring-2 focus:ring黑/20 dark:focus:ring白/20" />
-          <button disabled={adding} className="px-3 py-2 rounded-md bg-black text-white dark:bg白 dark:text黑 hover:opacity-90 transition-opacity">{adding ? "添加中..." : "添加"}</button>
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="书名" className="flex-1 rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20" />
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="作者" className="flex-1 rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20" />
+          <button disabled={adding} className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition-opacity">{adding ? "添加中..." : "添加"}</button>
         </form>
       </div>
 
@@ -132,6 +133,13 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
               <div className="text-black dark:text-white">
                 <div className="font-medium truncate" title={b.title}>{b.title}</div>
                 <div className="text-sm text-black/60 dark:text-white/60 truncate" title={b.author ?? undefined}>{b.author}</div>
+                <div className="text-xs text-black/50 dark:text-white/50 truncate">
+                  上传者：{b.uploader_username ? (
+                    <Link className="hover:underline" href={`/${b.uploader_username}`}>@{b.uploader_username}</Link>
+                  ) : (
+                    <span>用户</span>
+                  )}
+                </div>
               </div>
               <div className="relative">
                 <button onClick={() => setMenuOpenFor(menuOpenFor === b.id ? null : b.id)} className="px-2 py-1 text-xs rounded-md bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-black dark:text-white">封面</button>

@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 type Area = { x: number; y: number; width: number; height: number };
 
-async function getCroppedImg(imageSrc: string, area: Area, targetW: number, targetH: number): Promise<Blob> {
+async function getCroppedBlob(imageSrc: string, area: Area, targetW: number, targetH: number): Promise<Blob> {
 	const image = new Image();
 	image.src = imageSrc;
 	await image.decode();
@@ -31,9 +31,8 @@ export default function BannerCropDialog({ image, onCancel, onConfirm }: { image
 	}, []);
 
 	const confirm = useCallback(async () => {
-		const region = areaPx;
-		if (!region) return;
-		const blob = await getCroppedImg(image, region, 1500, 500);
+		if (!areaPx) return;
+		const blob = await getCroppedBlob(image, areaPx, 1500, 500);
 		onConfirm(blob);
 	}, [image, areaPx, onConfirm]);
 

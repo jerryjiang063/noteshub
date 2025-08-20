@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 type Area = { x: number; y: number; width: number; height: number };
 
-async function getCroppedImg(imageSrc: string, area: Area, targetW: number, targetH: number): Promise<Blob> {
+async function getCroppedBlob(imageSrc: string, area: Area, targetW: number, targetH: number): Promise<Blob> {
 	const image = new Image();
 	image.src = imageSrc;
 	await image.decode();
@@ -32,7 +32,7 @@ export default function CropDialog({ image, onCancel, onConfirm }: { image: stri
 
 	const confirm = useCallback(async () => {
 		if (!areaPx) return;
-		const blob = await getCroppedImg(image, areaPx, 900, 1200);
+		const blob = await getCroppedBlob(image, areaPx, 900, 1200);
 		onConfirm(blob);
 	}, [image, areaPx, onConfirm]);
 

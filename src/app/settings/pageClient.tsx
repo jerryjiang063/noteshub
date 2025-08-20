@@ -62,6 +62,9 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 			setError(upErr.message);
 			return;
 		}
+		// 读取最新数据刷新 UI
+		const { data: p } = await supabase.from("profiles").select("username, avatar_url, bio, banner_url").eq("id", userId).maybeSingle();
+		if (p) setProfile((prev) => ({ ...prev, username: (p as any).username ?? prev.username }));
 		alert("用户名已更新");
 	}
 
@@ -103,7 +106,9 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 			alert(profErr.message);
 			return;
 		}
-		setProfile((p) => ({ ...p, avatar_url: url }));
+		// 读取最新数据刷新 UI
+		const { data: p } = await supabase.from("profiles").select("username, avatar_url, bio, banner_url").eq("id", userId).maybeSingle();
+		setProfile((prev) => ({ ...prev, avatar_url: p?.avatar_url ?? url }));
 		alert("头像已更新");
 	}
 
@@ -131,7 +136,8 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 		const { error: profErr } = await supabase.from("profiles").update({ banner_url: url }).eq("id", userId);
 		setUploadingBanner(false);
 		if (profErr) { alert(profErr.message); return; }
-		setProfile((p) => ({ ...p, banner_url: url }));
+		const { data: p } = await supabase.from("profiles").select("username, avatar_url, bio, banner_url").eq("id", userId).maybeSingle();
+		setProfile((prev) => ({ ...prev, banner_url: p?.banner_url ?? url }));
 		alert("横幅已更新");
 	}
 
@@ -141,6 +147,8 @@ export default function SettingsClient({ initialProfile }: { initialProfile: Pro
 		const { error: upErr } = await supabase.from("profiles").update({ bio: profile.bio ?? null }).eq("id", userId);
 		setBioSaving(false);
 		if (upErr) { alert(upErr.message); return; }
+		const { data: p } = await supabase.from("profiles").select("username, avatar_url, bio, banner_url").eq("id", userId).maybeSingle();
+		if (p) setProfile((prev) => ({ ...prev, bio: (p as any).bio ?? prev.bio }));
 		alert("简介已更新");
 	}
 

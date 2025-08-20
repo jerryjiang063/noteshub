@@ -3,44 +3,39 @@
 import Cropper from "react-easy-crop";
 import { useCallback, useMemo, useState } from "react";
 
-function getCroppedImg(imageSrc: string, crop: { x: number; y: number }, zoom: number, aspect: number): Promise<Blob> {
-	return new Promise(async (resolve, reject) => {
-		try {
-			const image = new Image();
-			image.src = imageSrc;
-			await image.decode();
-			const canvas = document.createElement("canvas");
-			const ctx = canvas.getContext("2d");
-			if (!ctx) return reject(new Error("no ctx"));
+type Area = { x: number; y: number; width: number; height: number };
 
-			const naturalW = image.naturalWidth;
-			const naturalH = image.naturalHeight;
-
-			const cropPx = {
-				x: (crop.x * naturalW) / 100,
-				y: (crop.y * naturalH) / 100,
-				w: (100 / zoom) * (naturalW / 100),
-				h: (100 / zoom) * (naturalH / 100),
-			};
-
-			const targetW = 1500, targetH = 500;
-			canvas.width = targetW;
-			canvas.height = targetH;
-			ctx.drawImage(image, cropPx.x, cropPx.y, cropPx.w, cropPx.h, 0, 0, targetW, targetH);
-			canvas.toBlob((b) => { if (!b) reject(new Error("no blob")); else resolve(b); }, "image/jpeg", 0.9);
-		} catch (e) { reject(e); }
+async function getCroppedImg(imageSrc: string, area: Area, targetW: number, targetH: number): Promise<Blob> {
+	const image = new Image();
+	image.src = imageSrc;
+	await image.decode();
+	const canvas = document.createElement("canvas");
+	const ctx = canvas.getContext("2d");
+	if (!ctx) throw new Error("no ctx");
+	canvas.width = targetW;
+	canvas.height = targetH;
+	ctx.drawImage(image, area.x, area.y, area.width, area.height, 0, 0, targetW, targetH);
+	return await new Promise((resolve, reject) => {
+		canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/jpeg", 0.9);
 	});
 }
 
 export default function BannerCropDialog({ image, onCancel, onConfirm }: { image: string; onCancel: () => void; onConfirm: (blob: Blob) => void }) {
 	const [crop, setCrop] = useState({ x: 0, y: 0 });
 	const [zoom, setZoom] = useState(1);
+	const [areaPx, setAreaPx] = useState<Area | null>(null);
 	const aspect = useMemo(() => 3 / 1, []);
 
+	const onComplete = useCallback((_area: any, areaPixels: Area) => {
+		setAreaPx(areaPixels);
+	}, []);
+
 	const confirm = useCallback(async () => {
-		const blob = await getCroppedImg(image, { x: crop.x, y: crop.y }, zoom, aspect);
+		const region = areaPx;
+		if (!region) return;
+		const blob = await getCroppedImg(image, region, 1500, 500);
 		onConfirm(blob);
-	}, [image, crop, zoom, aspect, onConfirm]);
+	}, [image, areaPx, onConfirm]);
 
 	return (
 		<div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur flex items-center justify-center p-4">
@@ -53,6 +48,7 @@ export default function BannerCropDialog({ image, onCancel, onConfirm }: { image
 						aspect={aspect}
 						onCropChange={setCrop}
 						onZoomChange={setZoom}
+						onCropComplete={onComplete}
 						cropShape="rect"
 						objectFit="contain"
 						showGrid={false}

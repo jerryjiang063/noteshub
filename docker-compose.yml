@@ -4,6 +4,8 @@ services:
     build: .
     container_name: noteshub-web
     restart: unless-stopped
+    env_file:
+      - .env.local
     environment:
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}

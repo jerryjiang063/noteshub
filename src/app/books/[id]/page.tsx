@@ -16,7 +16,7 @@ export default async function BookNotesPage({ params }: { params: Promise<{ id: 
 
 	const { data: book } = await supabase
 		.from("books")
-		.select("id, title, author, cover_url, user_id")
+		.select("id, title, author, cover_url, user_id, description")
 		.eq("id", bookId)
 		.single();
 
@@ -34,5 +34,5 @@ export default async function BookNotesPage({ params }: { params: Promise<{ id: 
 		.eq("book_id", bookId)
 		.order("updated_at", { ascending: false });
 
-	return <NotesClient book={book} initialNotes={notes ?? []} ownerUsername={(prof as any)?.username ?? null} />;
+	return <NotesClient book={book as any} initialNotes={notes ?? []} ownerUsername={(prof as any)?.username ?? null} />;
 } 

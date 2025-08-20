@@ -11,6 +11,7 @@ import NoteComments from "@/components/NoteComments";
 import BookCover from "@/components/BookCover";
 import CropDialog from "@/components/covers/CropDialog";
 import { searchCoverLinks } from "@/lib/covers/googleCse";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 
 
 function useDebouncedCallback<TArgs extends unknown[], TReturn>(fn: (...args: TArgs) => TReturn, delay: number) {
@@ -23,7 +24,7 @@ function useDebouncedCallback<TArgs extends unknown[], TReturn>(fn: (...args: TA
   };
 }
 
-type Book = { id: string; title: string; author: string | null; cover_url: string | null; user_id: string };
+type Book = { id: string; title: string; author: string | null; cover_url: string | null; user_id: string; description?: string | null };
 
 type Note = { id: string; title: string | null; content_html: string | null; font_name?: string | null; font_url?: string | null; created_at: string; updated_at: string };
 
@@ -42,6 +43,12 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
   const [cropOpen, setCropOpen] = useState(false);
   const [rawImage, setRawImage] = useState<string | null>(null);
   const [coverResults, setCoverResults] = useState<{ links: string[]; index: number }>({ links: [], index: 0 });
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [creatingPulse, setCreatingPulse] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(book.title);
+  const [editAuthor, setEditAuthor] = useState(book.author ?? "");
+  const [editDesc, setEditDesc] = useState(book.description ?? "");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -183,12 +190,14 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
 
   async function createNote() {
     setCreating(true);
+    setCreatingPulse(true);
     const { data, error } = await supabase
       .from("notes")
       .insert({ book_id: book.id, title: "新建笔记", content_html: "" })
       .select("id, title, content_html, font_name, font_url, created_at, updated_at")
       .single();
     setCreating(false);
+    setTimeout(() => setCreatingPulse(false), 400);
     if (error) {
       alert(error.message);
       return;
@@ -213,14 +222,7 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
   }
 
   async function deleteNote(noteId: string) {
-    const ok = confirm("确认删除该笔记？");
-    if (!ok) return;
-    const { error } = await supabase.from("notes").delete().eq("id", noteId);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    setPendingDeleteId(noteId);
   }
 
   async function changeFont(noteId: string, name: string, url?: string | null) {
@@ -268,10 +270,15 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
         </div>
         <div className="ml-auto">
           {isOwner && (
-            <button disabled={creating} onClick={createNote} className="px-4 py-2 text-base rounded-md border border-black/10 dark:border-white/20 bg-black text-white dark:bg-white dark:text-black hover:opacity-90">新建笔记</button>
+            <button disabled={creating} onClick={createNote} className={`px-4 py-2 text-base rounded-md border border-black/10 dark:border-white/20 bg-black text-white dark:bg-white dark:text-black hover:opacity-90 ${creatingPulse ? "animate-pulse" : ""}`}>新建笔记</button>
           )}
         </div>
       </div>
+      {isOwner && (
+        <div className="mx-auto max-w-6xl px-4 -mt-4">
+          <button onClick={() => setEditOpen(true)} className="text-sm text-black/70 dark:text-white/70 hover:underline">修改基础信息</button>
+        </div>
+      )}
 
       <div className="space-y-6">
         {notes.map((note) => (
@@ -329,6 +336,59 @@ export default function NotesClient({ book, initialNotes, ownerUsername }: { boo
       {cropOpen && rawImage && (
         <CropDialog image={rawImage} onCancel={onCropCancel} onConfirm={onCropConfirm} />
       )}
+      {editOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4" onClick={() => setEditOpen(false)}>
+          <div className="bg-[color:var(--background)] rounded-xl shadow-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="text-base font-semibold text-black dark:text-white mb-2">编辑书籍信息</div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-black/60 dark:text-white/60 mb-1">书名</label>
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm text-black/60 dark:text-white/60 mb-1">作者</label>
+                <input value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)} className="w-full rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm text-black/60 dark:text-white/60 mb-1">简介</label>
+                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} className="w-full rounded-md px-3 py-2 bg-black/5 dark:bg-white/10 outline-none" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setEditOpen(false)} className="px-3 py-2 rounded-md bg-black/5 dark:bg-white/10">取消</button>
+              <button
+                onClick={async () => {
+                  const updates: any = { title: editTitle, author: editAuthor || null, description: editDesc || null };
+                  const { error } = await supabase.from("books").update(updates).eq("id", book.id);
+                  if (!error) {
+                    book.title = editTitle; (book as any).author = editAuthor || null; (book as any).description = editDesc || null;
+                    setEditOpen(false);
+                  } else {
+                    alert(error.message);
+                  }
+                }}
+                className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black"
+              >保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <ConfirmDialog
+        open={!!pendingDeleteId}
+        title="删除笔记"
+        description="此操作不可恢复，确定要删除该笔记吗？"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={async () => {
+          const id = pendingDeleteId!;
+          setPendingDeleteId(null);
+          const { error } = await supabase.from("notes").delete().eq("id", id);
+          if (error) { alert(error.message); return; }
+          setNotes((prev) => prev.filter((n) => n.id !== id));
+        }}
+      />
     </div>
   );
 } 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import ConfirmDialog from "@/components/dialogs/ConfirmDialog";
 
 type Comment = { id: string; content: string; user_id: string; created_at: string; username?: string };
 
@@ -12,6 +13,21 @@ export default function NoteComments({ noteId }: { noteId: string }) {
   const [list, setList] = useState<Comment[]>([]);
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meUsername, setMeUsername] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Comment | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id ?? null;
+      setMeId(uid);
+      if (uid) {
+        const { data: p } = await supabase.from("profiles").select("username").eq("id", uid).maybeSingle();
+        setMeUsername((p as any)?.username ?? null);
+      }
+    })();
+  }, [supabase]);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -50,6 +66,10 @@ export default function NoteComments({ noteId }: { noteId: string }) {
     load();
   }
 
+  const canDelete = (c: Comment) => {
+    return (meId && meId === c.user_id) || meUsername === "jerryjiang063";
+  };
+
   return (
     <div className="mt-2">
       <button onClick={() => setOpen((v) => !v)} className="text-sm text-black/60 dark:text-white/60">
@@ -64,7 +84,12 @@ export default function NoteComments({ noteId }: { noteId: string }) {
           <div className="space-y-2">
             {list.map((c) => (
               <div key={c.id} className="rounded-md border border-black/10 dark:border-white/10 p-2 text-sm">
-                <div className="text-xs text-black/60 dark:text-white/60 mb-1">@{c.username ?? c.user_id} · {new Date(c.created_at).toLocaleString()}</div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="text-xs text-black/60 dark:text-white/60">@{c.username ?? c.user_id} · {new Date(c.created_at).toLocaleString()}</div>
+                  {canDelete(c) && (
+                    <button onClick={() => setPendingDelete(c)} className="px-2 py-1 text-xs rounded-md border border-red-500/50 text-red-600 hover:bg-red-500/10">删除</button>
+                  )}
+                </div>
                 <div>{c.content}</div>
               </div>
             ))}
@@ -72,6 +97,22 @@ export default function NoteComments({ noteId }: { noteId: string }) {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="删除评论"
+        description="此操作不可恢复，确定要删除该评论吗？"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={async () => {
+          const id = pendingDelete!.id;
+          setPendingDelete(null);
+          const { error } = await supabase.from("notes_comments").delete().eq("id", id);
+          if (error) { alert(error.message); return; }
+          load();
+        }}
+      />
     </div>
   );
 } 

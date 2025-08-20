@@ -54,7 +54,7 @@ export default function CropDialog({ image, onCancel, onConfirm }: { image: stri
 					/>
 				</div>
 				<div className="flex items-center justify-end gap-2 p-3 border-t border-black/10 dark:border-white/10">
-					<button onClick={onCancel} className="px-3 py-2 rounded-md bg-black/5 dark:bg-white/10">取消</button>
+					<button onClick={onCancel} className="px-3 py-2 rounded-md bg-black/5 dark:bg-white/10 text-black dark:text-white">取消</button>
 					<button onClick={confirm} className="px-3 py-2 rounded-md bg-black text-white dark:bg-white dark:text-black">确定</button>
 				</div>
 			</div>

@@ -7,14 +7,19 @@ type NoteRow = { id: string; content_html: string; updated_at: string; books: { 
 
 type ProfileRow = { id: string; username: string };
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const supabase = await createSupabaseServerClient();
+
+  const sp = (await searchParams) || {};
+  const limitParam = Array.isArray(sp.limit) ? sp.limit[0] : sp.limit;
+  const requested = Number(limitParam) || 12;
+  const limit = Math.max(12, Math.min(60, Math.floor(requested)));
 
   const { data: rows } = await supabase
     .from("notes")
     .select("id, content_html, updated_at, books:book_id ( id, title, user_id )")
     .order("updated_at", { ascending: false })
-    .limit(12);
+    .limit(limit);
 
   const notes: NoteRow[] = (rows as unknown as NoteRow[] | null)?.filter((n) => n?.books?.id) ?? [];
 
@@ -34,15 +39,20 @@ export default async function Home() {
       <div className="grid gap-4 md:grid-cols-2">
         {notes.map((n) => (
           <Link key={n.id} href={`/books/${n.books.id}`} className="group rounded-xl border border-black/10 dark:border-white/20 p-4 hover:shadow-lg transition-shadow">
-            <div className="text-sm text-black/60 dark:text-white mb-2">
+            <div className="text-sm text-black/60 dark:text-white/60 mb-2">
               <span>@{usernameById.get(n.books.user_id) ?? "用户"}</span>
               <span className="mx-2">·</span>
               <span className="truncate inline-block max-w-[60%] align-bottom">{n.books.title}</span>
             </div>
-            <div className="text-base opacity-80 italic text-black dark:text-white">“{extractSentence(n.content_html)}”</div>
+            <div className="text-lg md:text-xl opacity-80 italic text-black dark:text-white">“{extractSentence(n.content_html)}”</div>
           </Link>
         ))}
-      </div>
+        </div>
+      {limit < 60 && (
+        <div className="flex justify-center">
+          <Link href={`/?limit=${limit + 12}`} className="mt-1 px-4 py-2 rounded-md border border-black/10 dark:border-white/20 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10">显示更多</Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -50,7 +60,7 @@ export default async function Home() {
 function extractSentence(html: string): string {
   try {
     const text = html
-      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<br\s*\/?>(?=\s|$)/gi, "\n")
       .replace(/<\/(p|div|li)>/gi, "\n")
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;/g, " ")
